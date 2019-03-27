@@ -125,7 +125,7 @@ export class About extends PureComponent {
             </Text>
             .{'\n'}
             {'\n'}
-            Shoot! I Smoke v{Constants.manifest.version}.
+            Shoot! I Smoke v{Constants.manifest.version} (bg_720 mod).
           </Text>
         </View>
       </ScrollView>

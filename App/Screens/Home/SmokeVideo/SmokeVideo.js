@@ -6,7 +6,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 import { inject, observer } from 'mobx-react';
 import { Video } from 'expo';
 
-import smokeVideo from '../../../../assets/video/smoke_bg_fafafc.mp4';
+import smokeVideo from '../../../../assets/video/smoke_bg_720.mp4';
 
 @inject('stores')
 @observer
