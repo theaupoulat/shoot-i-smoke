@@ -20,6 +20,7 @@ import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Box } from './Box';
 import { BackButton } from '../../components/BackButton';
+import { Language } from './Language';
 import { i18n } from '../../localization';
 import * as theme from '../../utils/theme';
 
@@ -129,6 +130,7 @@ export class About extends PureComponent {
             {'\n'}
             Shoot! I Smoke v{Constants.manifest.version}.
           </Text>
+          <Language></Language>
         </View>
       </ScrollView>
     );
