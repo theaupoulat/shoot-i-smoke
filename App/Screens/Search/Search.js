@@ -64,7 +64,7 @@ export class Search extends Component {
       await retry(
         async (_, attempt) => {
           console.log(
-            `<Search> - fetchResults - Attempt #${attempt}: ${
+            `<Search> - fetchResults() - Attempt #${attempt}: ${
               algoliaUrls[attempt - 1]
             }/1/places/query`
           );
@@ -96,7 +96,7 @@ export class Search extends Component {
             }
           );
 
-          console.log('<Search> - fetchResults - Got', hits.length, 'results');
+          console.log('<Search> - fetchResults() - Got', hits.length, 'results');
           this.setState({ hits });
         },
         {

@@ -16,14 +16,45 @@
 
 import React, { Component } from 'react';
 import { inject, observer } from 'mobx-react';
-import { Location, Permissions } from 'expo';
+import { Location, Permissions, TaskManager } from 'expo';
 import retry from 'async-retry';
 import { StyleSheet, Text } from 'react-native';
 
 import { Background } from './Background';
 import { i18n } from '../../localization';
+import { AqiHistoryManager } from '../../managers';
 import * as dataSources from '../../utils/dataSources';
 import * as theme from '../../utils/theme';
+
+const TASK_STORE_AQI_HISTORY = 'TASK_STORE_AQI_HISTORY';
+
+/**
+ * Make an API call to data sources to fetch AQI data.
+ */
+async function apiCall (currentPosition) {
+  // We currently have 2 sources, aqicn, and windWaqi
+  // We put them in an array
+  const sources = [dataSources.aqicn, dataSources.windWaqi];
+
+  return retry(
+    async (_, attempt) => {
+      // Attempt starts at 1
+      console.log(
+        `<Loading> - apiCall() - Attempt #${attempt}: ${
+          sources[(attempt - 1) % 2].name
+        }`
+      );
+      const result = await sources[(attempt - 1) % 2](currentPosition);
+      console.log('<Loading> - apiCall() - Got result', result);
+
+      return result;
+    },
+    {
+      onRetry: (err) => console.log('<Loading> - apiCall() - Error:', err.message),
+      retries: 3
+    } // 2 attempts per source
+  );
+}
 
 @inject('stores')
 @observer
@@ -34,8 +65,9 @@ export class Loading extends Component {
 
   longWaitingTimeout = null; // The variable returned by setTimeout for longWaiting
 
-  componentDidMount () {
-    this.fetchData();
+  async componentDidMount () {
+    await this.fetchData();
+    await this._startRecordingAqiHistory();
   }
 
   componentWillUnmount () {
@@ -43,6 +75,14 @@ export class Loading extends Component {
       clearTimeout(this.longWaitingTimeout);
     }
   }
+
+  _startRecordingAqiHistory = async () => {
+    await Location.startLocationUpdatesAsync(TASK_STORE_AQI_HISTORY, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      timeInterval: AqiHistoryManager.SAVE_DATA_INTERVAL,
+      distanceInterval: 0
+    });
+  };
 
   async fetchData () {
     const { stores } = this.props;
@@ -55,14 +95,14 @@ export class Loading extends Component {
       // If the currentLocation has been set by the user, then we don't refetch
       // the user's GPS
       if (!currentPosition) {
-        console.log('<Loading> - fetchData - Asking for location permission');
+        console.log('<Loading> - fetchData() - Asking for location permission');
         const { status } = await Permissions.askAsync(Permissions.LOCATION);
 
         if (status !== 'granted') {
           throw new Error('Permission to access location was denied');
         }
 
-        console.log('<Loading> - fetchData - Fetching location');
+        console.log('<Loading> - fetchData() - Fetching location');
         const { coords } = await Location.getCurrentPositionAsync({
           timeout: 5000
         });
@@ -77,15 +117,11 @@ export class Loading extends Component {
         // };
 
         currentPosition = coords;
-        console.log('<Loading> - fetchData - Got location', currentPosition);
+        console.log('<Loading> - fetchData() - Got location', currentPosition);
 
         location.setCurrent(coords);
         location.setGps(coords);
       }
-
-      // We currently have 2 sources, aqicn, and windWaqi
-      // We put them in an array
-      const sources = [dataSources.aqicn, dataSources.windWaqi];
 
       // Set a 2s timer that will set `longWaiting` to true. Used to show an
       // additional "cough" message on the loading screen
@@ -94,25 +130,9 @@ export class Loading extends Component {
         2000
       );
 
-      const api = await retry(
-        async (_, attempt) => {
-          // Attempt starts at 1
-          console.log(
-            `<Loading> - fetchData - Attempt #${attempt}: ${
-              sources[(attempt - 1) % 2].name
-            }`
-          );
-          const result = await sources[(attempt - 1) % 2](currentPosition);
-          console.log('<Loading> - fetchData - Got result', result);
-
-          return result;
-        },
-        { retries: 3 } // 2 attemps per source
-      );
-
-      stores.setApi(api);
+      stores.setApi(await apiCall(currentPosition));
     } catch (error) {
-      console.log('<Loading> - fetchData - Error', error);
+      console.log('<Loading> - fetchData() - Error', error);
       stores.setError(error.message);
     }
   }
@@ -157,6 +177,30 @@ export class Loading extends Component {
     );
   };
 }
+
+TaskManager.defineTask(TASK_STORE_AQI_HISTORY, async ({ data, error }) => {
+  console.log(`<Loading> - TaskManager - ${TASK_STORE_AQI_HISTORY} - Running background task`);
+
+  if (error) {
+    console.log(`<Loading> - TaskManager - ${TASK_STORE_AQI_HISTORY} - Error:`, error.message);
+    return;
+  }
+
+  try {
+    if (data) {
+      const { locations } = data;
+      const { coords: currentPosition } = locations[0];
+
+      if (await AqiHistoryManager.isSaveNeeded()) {
+        const api = await apiCall(currentPosition);
+
+        await AqiHistoryManager.saveData(currentPosition, api.rawPm25);
+      }
+    }
+  } catch (err) {
+    console.log(`<Loading> - TaskManager - ${TASK_STORE_AQI_HISTORY} - Error: Could not make SQL transaction`);
+  }
+});
 
 const styles = StyleSheet.create({
   dots: {

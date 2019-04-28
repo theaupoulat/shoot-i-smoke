@@ -96,7 +96,7 @@ export const aqicn = async ({ latitude, longitude }) => {
     !response.data.iaqi.pm25 ||
     response.data.iaqi.pm25.v === undefined
   ) {
-    throw new Error('PM2.5 not defined in response.');
+    throw new Error('PM2.5 not defined in response');
   }
 
   return {

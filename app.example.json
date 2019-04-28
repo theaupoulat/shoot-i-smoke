@@ -8,10 +8,14 @@
       },
       "icon": "assets/logos/android/playstore-icon.png",
       "package": "com.shitismoke.app",
-      "permissions": ["ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION"
+      ],
       "versionCode": 8
     },
-    "assetBundlePatterns": ["assets/fonts/*"],
+    "assetBundlePatterns": [
+      "assets/fonts/*"
+    ],
     "extra": {
       "algoliaApiKey": "YOUR_KEY",
       "algoliaApplicationId": "YOUR_KEY",
