@@ -18,10 +18,7 @@ import { SQLite } from 'expo';
 
 const DB_AQI_HISTORY = 'DB_AQI_HISTORY';
 export const SAVE_DATA_INTERVAL = 3600000; // 1 hour
-
-const initDb = () => {
-  return SQLite.openDatabase(DB_AQI_HISTORY, '1.0', 'Aqi History', 5 * 1024 * 1024);
-};
+const BUFFER_INTERVAL = 5000;
 
 // Holds a singleton db object
 let db;
@@ -31,7 +28,7 @@ const init = async () => {
     return db;
   }
 
-  db = await initDb();
+  db = await SQLite.openDatabase(DB_AQI_HISTORY);
 
   await db.transaction(
     (tx) => {
@@ -72,7 +69,7 @@ export const isSaveNeeded = async () => {
             if (resultSet.rows.length === 0) {
               console.log('AqiHistoryManager - isSaveNeeded() - No entries, needs saving: true');
               resolve(true);
-            } else if ((resultSet.rows.item(0).creation_time + SAVE_DATA_INTERVAL) < Date.now()) {
+            } else if ((resultSet.rows.item(0).creation_time + SAVE_DATA_INTERVAL) < Date.now() + BUFFER_INTERVAL) {
               console.log('AqiHistoryManager - isSaveNeeded() - Old latest entriy, needs saving: true');
               resolve(true);
             } else {
@@ -90,6 +87,13 @@ export const isSaveNeeded = async () => {
   });
 };
 
+/**
+ * Add a new entry to the db
+ *
+ * @param {*} location - A `{ latitude, longitude }` describing the user's
+ * current GPS coordinates
+ * @param {*} rawPm25 - The raw PM2.5 concentration.
+ */
 export const saveData = async (location, rawPm25) => {
   const db = await init();
 
@@ -112,25 +116,30 @@ export const saveData = async (location, rawPm25) => {
   ));
 };
 
-export const getData = async (limit) => {
+/**
+ * Get average of cigarettes smoked since the beginning.
+ */
+export const getData = async () => {
   const db = await init();
 
   return new Promise((resolve, reject) => {
-    db.readTransaction((tx) => {
-      tx.executeSql(
-        'select * from history order by creation_time desc limit ' + limit,
-        [],
-        (_transaction, resultSet) => {
-          let data = [];
-
-          for (let i = 0; i < resultSet.rows.length; i++) {
-            data.push(resultSet.rows.item(i));
+    db.readTransaction(
+      (tx) => {
+        tx.executeSql(
+          // TODO Calculate the integral of all points, in order to get an
+          // average of cigarettes smoked over time.
+          // For now we just return the number of rows
+          `select count(*) from history`,
+          [],
+          (_transaction, resultSet) => {
+            resolve(resultSet.rows.item(0)['count(*)']);
           }
-
-          resolve(data);
-        },
-        (transaction, error) => reject(error)
-      );
-    });
+        );
+      },
+      (error) => {
+        console.log('AqiHistoryManager - getData() - Error:', error.message);
+        reject(error);
+      }
+    );
   });
 };

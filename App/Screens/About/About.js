@@ -22,9 +22,20 @@ import { Box } from './Box';
 import { BackButton } from '../../components/BackButton';
 import { Language } from './Language';
 import { i18n } from '../../localization';
+import { AqiHistoryManager } from '../../managers';
 import * as theme from '../../utils/theme';
 
 export class About extends PureComponent {
+  state = {
+    average: 0
+  }
+
+  async componentDidMount () {
+    const average = await AqiHistoryManager.getData();
+
+    this.setState({ average });
+  }
+
   handleOpenAmaury = () => Linking.openURL('https://twitter.com/amaurymartiny');
 
   handleOpenAqi = () => Linking.openURL('http://aqicn.org/');
@@ -133,6 +144,10 @@ export class About extends PureComponent {
           <View style={styles.language}>
             <Text style={theme.text}>{i18n.t('about_language')}: </Text>
             <Language />
+          </View>
+
+          <View style={styles.language}>
+            <Text style={theme.text}>Average: {this.state.average}</Text>
           </View>
         </View>
       </ScrollView>
